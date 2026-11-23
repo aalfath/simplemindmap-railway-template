@@ -1,0 +1,66 @@
+# Rendered by start.sh (__PORT__, __DATA_DIR__, __MAX_BODY_SIZE__).
+user  nginx;
+# One worker: Railway shows 32 host CPUs inside a small service, and a static site needs one.
+worker_processes  1;
+error_log  /dev/stderr warn;
+pid        /tmp/nginx.pid;
+
+events {
+  worker_connections  1024;
+}
+
+http {
+  include       /etc/nginx/mime.types;
+  default_type  application/octet-stream;
+  access_log    off;
+  sendfile      on;
+  keepalive_timeout  65;
+  server_tokens off;
+
+  gzip on;
+  gzip_comp_level 5;
+  gzip_min_length 1024;
+  gzip_types text/css application/javascript application/json image/svg+xml text/plain;
+
+  client_body_temp_path __DATA_DIR__/tmp;
+  client_max_body_size  __MAX_BODY_SIZE__;
+
+  server {
+    listen       __PORT__;
+    listen       [::]:__PORT__;
+    server_name  _;
+
+    # Health check for Railway: no login, no volume access.
+    location = /healthz {
+      auth_basic off;
+      default_type text/plain;
+      return 200 "ok\n";
+    }
+
+    auth_basic           "SimpleMindMap";
+    auth_basic_user_file /etc/nginx/simplemindmap.htpasswd;
+
+    # Server-side storage for the four keys the app keeps in localStorage.
+    # GET returns the saved value (404 if none yet), PUT saves it atomically, DELETE removes it.
+    location ~ ^/api/state/SIMPLE_MIND_MAP_(DATA|CONFIG|LANG|LOCAL_CONFIG)$ {
+      root __DATA_DIR__;
+      dav_methods PUT DELETE;
+      dav_access user:rw;
+      create_full_put_path on;
+      limit_except GET PUT DELETE { deny all; }
+      default_type application/octet-stream;
+      add_header Cache-Control "no-store" always;
+    }
+    location /api/ {
+      return 404;
+    }
+
+    location / {
+      root   /app;
+      index  index.html;
+      # Asset names carry no hash upstream, so revalidate instead of caching for long.
+      add_header Cache-Control "no-cache" always;
+      try_files $uri $uri/ /index.html;
+    }
+  }
+}
