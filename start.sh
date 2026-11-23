@@ -39,4 +39,23 @@ sed -e "s#__PORT__#${PORT}#g" \
 
 nginx -t -q || fail "nginx config test failed"
 echo "simplemindmap: SimpleMindMap $(cat /app/VERSION) on port ${PORT}, data in ${DATA_DIR}/api/state, login user '${AUTH_USERNAME}'"
-exec nginx -g 'daemon off;'
+
+# Supervise nginx instead of exec'ing it: nginx exits 0 on a stop signal, and Railway's ON_FAILURE
+# policy (the only one on Free/Trial plans) restarts only non-zero exits. So any nginx exit we
+# did not ask for ends this script with a non-zero code.
+STOPPING=0
+nginx -g 'daemon off;' &
+NGINX_PID=$!
+on_signal() { STOPPING=1; kill -QUIT "$NGINX_PID" 2>/dev/null || true; }
+trap on_signal TERM INT QUIT
+rc=0
+while :; do
+  set +e; wait "$NGINX_PID"; rc=$?; set -e
+  kill -0 "$NGINX_PID" 2>/dev/null || break
+done
+if [ "$STOPPING" = 1 ]; then
+  echo "simplemindmap: stopped"
+  exit 0
+fi
+echo "simplemindmap: nginx exited unexpectedly (code $rc); exiting 1 so Railway restarts the service" >&2
+exit 1
