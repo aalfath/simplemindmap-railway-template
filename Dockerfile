@@ -3,7 +3,7 @@
 # just copies them into nginx. We do the same at a pinned release commit, verified by checksum,
 # and add server-side storage on a volume (nginx WebDAV PUT) behind basic auth.
 
-ARG NGINX_IMAGE=nginx:1.30.8-alpine@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb
+ARG NGINX_IMAGE=nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
 
 FROM ${NGINX_IMAGE} AS src
 # Release 0.20.0 (tag 0.20.0 = commit e8e5ef9c41bc13ca7b13084e078123adff002242)
