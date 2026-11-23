@@ -80,6 +80,8 @@
     if (value !== null) { opts.body = value; opts.headers = { 'Content-Type': 'application/octet-stream' }; }
     if (keepalive && (value === null || value.length < 60000)) opts.keepalive = true;
     return fetch(BASE + key, opts).then(function (r) {
+      return r.arrayBuffer().then(function () { return r; }, function () { return r; }); // read the body so the request completes cleanly
+    }).then(function (r) {
       if (!(r.ok || (value === null && r.status === 404))) throw new Error('HTTP ' + r.status);
       if (failed) { failed = false; showBadge('Saved to server', true); }
     }).catch(function (err) {
